@@ -124,28 +124,13 @@ curl -X POST http://localhost/api/deployments \
   }'
 ```
 
-With environment variables:
-
-```bash
-curl -X POST http://localhost/api/deployments \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sourceType": "git",
-    "sourceUrl": "https://github.com/your/repo",
-    "env": {
-      "MY_SECRET": "value",
-      "API_KEY": "abc123"
-    }
-  }'
-```
-
 ---
 
 ## Sample App
 
 The [Render Express Hello World](https://github.com/render-examples/express-hello-world) works out of the box as a test deployment.
 
-For a more complete test, deploy the included Next.js sample app: *(link coming)*
+For a more complete test, deploy the included Next.js sample app: [PDF Editor Lite](https://github.com/AdedigbaOluwad1/pdf-editor-lite)
 
 ---
 
@@ -157,6 +142,7 @@ apps/
     src/
       lib/
         emitter.ts      — SSE log emitter
+        port.ts         — generates ports for containers
       pipeline/
         index.ts        — pipeline orchestrator
         clone.ts        — git clone
@@ -164,7 +150,8 @@ apps/
         run.ts          — docker run
         caddy.ts        — Caddy admin API patching
       routes/
-        deployments.ts  — deployment CRUD + SSE
+        deployments.ts  — deployment CRUD
+        logs.ts         — SSE
   web/                  — Vite + React Router frontend
 caddy/
   Caddyfile             — Caddy config
@@ -240,12 +227,12 @@ The full stack is at [github.com/AdedigbaOluwad1/hangar](https://github.com/Aded
 
 ## Submission Checklist
 
-- [x] Runs end-to-end with `docker compose up`
-- [x] Live log streaming over SSE
-- [x] Railpack builds produce runnable images
-- [x] Caddy fronts every deployment
-- [x] Subdomain routing per deployment
-- [x] Logs persist and are scrollable after build
-- [x] README with architecture notes and decisions
+- ✅ Runs end-to-end with `docker compose up`
+- ✅ Live log streaming over SSE
+- ✅ Railpack builds produce runnable images
+- ✅ Caddy fronts every deployment
+- ✅ Subdomain routing per deployment
+- ✅ Logs persist and are scrollable after build
+- ✅ README with architecture notes and decisions
 - [ ] Loom walkthrough *(coming)*
 - [ ] Brimble deploy + feedback *(coming)*
