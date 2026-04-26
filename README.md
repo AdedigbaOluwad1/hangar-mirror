@@ -182,19 +182,23 @@ The admin API makes dynamic route injection trivial — no config reloads, no re
 ---
 
 ## What I'd Do With More Time
-
+ 
 **Swap SQLite for Postgres** — SQLite works fine for a single-node setup but Postgres is the right call for anything multi-tenant or highly concurrent.
-
+ 
 **Add a job queue** — right now the pipeline fires directly from the POST handler. A queue (BullMQ + Redis) would decouple the API from the pipeline, give retry semantics for free, and make it easy to add per-user concurrency limits later.
-
+ 
 **Add a local image registry** — right now built images live in the Docker daemon's local store. A local registry (`registry:2`) would let Nomad or any external orchestrator pull images by tag, and would make build cache reuse across deploys more reliable.
-
+ 
 **Proper container lifecycle management** — stopping a deployment currently just kills the container. Zero-downtime redeploys (drain traffic → start new container → switch Caddy upstream → stop old container) would be the production pattern.
-
+ 
 **Rollback** — image tags are stored per deployment. Redeploying a previous tag is a matter of re-running the `run` and `caddy` steps with the stored `imageTag`. The data model already supports it.
-
+ 
+**Env var support** — no env var injection at all right now. The API accepts an `env` object on the deployment payload but it isn't threaded through to `docker run`. The next step is passing them as `--env` flags at container start, and beyond that, moving to a secrets store (Vault in production Hangar) so vars can be updated and picked up on the next restart without a full redeploy.
+ 
+**Resource allocation** — containers currently run with no CPU or memory limits, which means a single runaway deployment can starve everything else on the host. `docker run` supports `--cpus` and `--memory` flags; the right pattern is accepting limits on the deployment payload and enforcing them at runtime.
+ 
 **Auth** — no auth at all right now. In production, deployments are scoped to users and env vars are stored encrypted per deployment. The queue would be per-user with rate limits.
-
+ 
 **What I'd rip out** — the `host-gateway` extra_hosts hack in docker-compose. It works locally but it's fragile — the WSL IP changes on restart. In production this goes away entirely because Nomad handles container scheduling and Consul handles service discovery, so Caddy never needs to dial the host directly.
 
 ---
