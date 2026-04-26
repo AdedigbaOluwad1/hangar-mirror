@@ -8,7 +8,7 @@ Push a Git URL. Hangar clones it, builds it into a container image with Railpack
 
 ## Demo
 
-> 🎥 [Loom Walkthrough](#) — *(link coming)*
+> 🎥 [Loom Walkthrough](https://www.loom.com/share/fe02d20d8c82466c81fe1193f410eba6)
 
 ---
 
@@ -219,14 +219,20 @@ The full stack is at [github.com/AdedigbaOluwad1/hangar](https://github.com/Aded
 
 ## Time Spent
 
-~8 hours across pipeline design, BuildKit integration, Caddy dynamic routing, SSE log streaming, and frontend wiring.
+~12 hours across pipeline design, BuildKit integration, Caddy dynamic routing, SSE log streaming, and frontend wiring.
 
 ---
 
 ## Brimble Deploy + Feedback
-
-> *(Coming — will update with deploy link and feedback)*
-
+ 
+Deployed [pdf-editor-lite.brimble.app](https://pdf-editor-lite.brimble.app) and [desmond-portfolio.brimble.app](https://desmond-portfolio.brimble.app)  — static Next.js apps — to Brimble to test the platform.
+ 
+**Result:** Deploys reported success but the live URL returned `Cannot GET /`. No runtime error, no signal in the logs that anything had gone wrong — the build output looked clean. The app deployed and ran correctly on Hangar without modification.
+ 
+**Pain point 1:** Brimble markets itself as a full-stack platform but the underlying infrastructure is JAMstack-first. Next.js in server mode (the default) needs a running Node process — but Brimble's build pipeline is oriented around static frontend output. The result: two separate Next.js apps both built successfully and both returned `Cannot GET /` on the live URL with no error, no runtime logs, and no indication from the platform that server-rendered apps are a different class of deployment. The gap between the homepage promise and the actual behaviour isn't documented anywhere.
+ 
+**Pain point 2:** Deployments are restricted to repos you own or have admin access to. Hangar accepts any public Git URL — you shouldn't need to own a public repo to deploy it.
+ 
 ---
 
 ## Submission Checklist
@@ -238,5 +244,5 @@ The full stack is at [github.com/AdedigbaOluwad1/hangar](https://github.com/Aded
 - ✅ Subdomain routing per deployment
 - ✅ Logs persist and are scrollable after build
 - ✅ README with architecture notes and decisions
-- [ ] Loom walkthrough *(coming)*
-- [ ] Brimble deploy + feedback *(coming)*
+- ✅ Loom walkthrough
+- ✅ Brimble deploy + feedback
