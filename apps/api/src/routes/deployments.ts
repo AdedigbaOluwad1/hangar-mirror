@@ -1,4 +1,3 @@
-// apps/api/src/routes/deployments.ts
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import { createDeployment, listDeployments, getDeployment } from '@hangar/db';

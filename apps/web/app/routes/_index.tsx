@@ -1,4 +1,3 @@
-// apps/web/app/routes/_index.tsx
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';

@@ -1,4 +1,3 @@
-// apps/api/src/pipeline/index.ts
 import { updateDeployment, writeLog } from '@hangar/db';
 import { clone } from './clone';
 import { build } from './build';

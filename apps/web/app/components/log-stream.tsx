@@ -1,4 +1,3 @@
-// apps/web/app/components/LogStream.tsx
 import { useEffect, useRef } from 'react';
 import { useLogStream } from '../lib/use-log-stream';
 

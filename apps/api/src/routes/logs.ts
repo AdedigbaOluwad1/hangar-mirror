@@ -1,4 +1,3 @@
-// apps/api/src/routes/logs.ts
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { getLogs, getDeployment } from '@hangar/db';

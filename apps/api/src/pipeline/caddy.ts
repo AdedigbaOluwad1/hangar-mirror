@@ -18,17 +18,13 @@ export async function patchCaddy(
   emitLog(deploymentId, 'deploy', `🌐 Configuring Caddy route`);
 
   const route = {
-    match: [{ path: [`/deploys/${deploymentId}`, `/deploys/${deploymentId}/*`] }],
+    match: [{ host: [`${deploymentId}.localhost`] }],
     handle: [
       {
         handler: 'subroute',
         routes: [
           {
             handle: [
-              {
-                handler: 'rewrite',
-                strip_path_prefix: `/deploys/${deploymentId}`,
-              },
               {
                 handler: 'reverse_proxy',
                 upstreams: [{ dial: `${getHostIp()}:${port}` }],
@@ -39,6 +35,7 @@ export async function patchCaddy(
       },
     ],
   };
+
 
   const existing = await fetch(
     `${CADDY_ADMIN}/config/apps/http/servers/srv0/routes`,
@@ -58,7 +55,7 @@ export async function patchCaddy(
     throw new Error(`Caddy admin API error: ${res.status} ${await res.text()}`);
   }
 
-  const liveUrl = `http://localhost/deploys/${deploymentId}`;
+  const liveUrl = `http://${deploymentId}.localhost`;
   writeLog(deploymentId, 'deploy', `🔗 Live at ${liveUrl}`);
   emitLog(deploymentId, 'deploy', `🔗 Live at ${liveUrl}`);
 

@@ -1,4 +1,3 @@
-// apps/api/src/lib/port.ts
 import { createServer } from 'net';
 
 export function getFreePort(): Promise<number> {

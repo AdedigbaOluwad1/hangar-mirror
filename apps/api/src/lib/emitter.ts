@@ -1,4 +1,3 @@
-// apps/api/src/lib/emitter.ts
 import { EventEmitter } from 'events';
 
 export const logEmitter = new EventEmitter();

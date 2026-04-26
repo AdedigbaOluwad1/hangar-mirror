@@ -1,4 +1,3 @@
-// apps/web/app/components/DeploymentList.tsx
 import type { Deployment } from '@hangar/types';
 
 const STATUS_COLORS: Record<string, string> = {

@@ -1,4 +1,3 @@
-// apps/api/src/pipeline/run.ts
 import Dockerode from 'dockerode';
 import { writeLog } from '@hangar/db';
 import { emitLog } from '../lib/emitter';
