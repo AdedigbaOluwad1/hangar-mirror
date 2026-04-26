@@ -1,159 +1,251 @@
-# Turborepo starter
+# Hangar
 
-This Turborepo starter is maintained by the Turborepo core team.
+A self-hosted deployment pipeline for containerised apps — built with TypeScript, Railpack, Caddy, and Docker.
 
-## Using this example
+Push a Git URL. Hangar clones it, builds it into a container image with Railpack, runs it, and fronts it with a live subdomain via Caddy. Build and deploy logs stream to the UI in real time over SSE.
 
-Run the following command:
+---
 
-```sh
-npx create-turbo@latest
+## Demo
+
+> 🎥 [Loom Walkthrough](#) — *(link coming)*
+
+---
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Vite + React Router + TanStack Query |
+| Backend | Hono (TypeScript) |
+| Build | Railpack + BuildKit |
+| Runtime | Docker |
+| Ingress | Caddy |
+| Database | SQLite (via better-sqlite3) |
+| Logs | SSE (real-time streaming + persistence) |
+
+---
+
+## Architecture
+
+```
+User submits Git URL
+        ↓
+API creates deployment record → fires pipeline async
+        ↓
+clone.ts      — git clone repo to /tmp
+build.ts      — Railpack prepares build plan → BuildKit builds image → loaded into Docker daemon
+run.ts        — docker run with dynamic port binding
+caddy.ts      — patches Caddy admin API to add reverse proxy route
+        ↓
+App live at http://{deploymentId}.localhost
 ```
 
-## What's inside?
+Logs are written to SQLite at each pipeline stage and streamed to the frontend over SSE as they happen — not after the fact.
 
-This Turborepo includes the following packages/apps:
+---
 
-### Apps and Packages
+## Getting Started
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+### Prerequisites
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+- Docker + Docker Compose
+- Git
 
-### Utilities
+That's it. Everything else runs inside Docker.
 
-This Turborepo has some additional tools already setup for you:
+### Run
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+```bash
+git clone https://github.com/AdedigbaOluwad1/hangar-mirror.git
+cd hangar-mirror
+docker compose up
+```
+
+Open [http://localhost](http://localhost).
+
+### Environment Variables
+
+All variables have sensible defaults and work out of the box with `docker compose up`. No external accounts required.
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_PATH` | `/data/hangar.db` | SQLite database path |
+| `CADDY_ADMIN_URL` | `http://caddy:2019` | Caddy admin API |
+| `BUILDKIT_HOST` | `tcp://buildkit:1234` | BuildKit daemon address |
+| `DOCKER_HOST` | `unix:///var/run/docker.sock` | Docker socket |
+| `NODE_ENV` | `development` | Node environment |
+
+---
+
+## How It Works
 
 ### Build
 
-To build all apps and packages, run the following command:
+Hangar uses [Railpack](https://railpack.io) to analyse the repo and generate a build plan — no Dockerfiles needed. BuildKit executes the plan and produces a Docker image. The image is loaded directly into the Docker daemon via the Docker socket.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+Railpack auto-detects the runtime (Node, Python, Go, etc.), package manager, install commands, and start command. It handles everything from dependency installation to the final image layer structure.
 
-```sh
-cd my-turborepo
-turbo build
+### Runtime
+
+The built image is run as a Docker container with a dynamically assigned host port. Hangar tracks the port and container ID against the deployment record.
+
+### Routing
+
+Caddy is the single point of ingress. When a container starts, Hangar patches the Caddy admin API to add a new route matching `{deploymentId}.localhost` and reverse proxying to the container's port on the host.
+
+Each deployment gets its own subdomain. Routes are added dynamically at runtime — no Caddy restarts required.
+
+### Log Streaming
+
+Every pipeline stage (`clone`, `build`, `deploy`, `system`) writes logs to SQLite and emits them over SSE simultaneously. The frontend subscribes to `/api/deployments/{id}/logs` as an `EventSource` and renders lines as they arrive — including mid-build output from Railpack and BuildKit.
+
+Logs persist in SQLite so users can scroll back after the build completes.
+
+---
+
+## API
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/deployments` | List all deployments |
+| `POST` | `/deployments` | Create a deployment |
+| `GET` | `/deployments/:id` | Get a deployment |
+| `GET` | `/deployments/:id/logs` | Stream logs over SSE |
+
+### Create a Deployment
+
+```bash
+curl -X POST http://localhost/api/deployments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sourceType": "git",
+    "sourceUrl": "https://github.com/render-examples/express-hello-world"
+  }'
 ```
 
-Without global `turbo`, use your package manager:
+With environment variables:
 
-```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+```bash
+curl -X POST http://localhost/api/deployments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sourceType": "git",
+    "sourceUrl": "https://github.com/your/repo",
+    "env": {
+      "MY_SECRET": "value",
+      "API_KEY": "abc123"
+    }
+  }'
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+---
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## Sample App
 
-```sh
-turbo build --filter=docs
+The [Render Express Hello World](https://github.com/render-examples/express-hello-world) works out of the box as a test deployment.
+
+For a more complete test, deploy the included Next.js sample app: *(link coming)*
+
+---
+
+## Project Structure
+
+```
+apps/
+  api/                  — Hono API server
+    src/
+      lib/
+        emitter.ts      — SSE log emitter
+      pipeline/
+        index.ts        — pipeline orchestrator
+        clone.ts        — git clone
+        build.ts        — Railpack + BuildKit image build
+        run.ts          — docker run
+        caddy.ts        — Caddy admin API patching
+      routes/
+        deployments.ts  — deployment CRUD + SSE
+  web/                  — Vite + React Router frontend
+caddy/
+  Caddyfile             — Caddy config
+packages/
+  db/                   — better-sqlite3 queries (shared package)
+docker-compose.yml
 ```
 
-Without global `turbo`:
+---
 
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
+## Decisions
 
-### Develop
+**Why Hono?**
+Fast, lightweight, and has first-class TypeScript support. The middleware model maps cleanly to the pipeline stages. SSE support is built in.
 
-To develop all apps and packages, run the following command:
+**Why better-sqlite3?**
+Zero infrastructure overhead for a take-home submission — no database service to spin up, no connection pool to configure. The synchronous API is actually a good fit here since the pipeline stages run sequentially and blocking I/O is acceptable. That said, SQLite is a file, not a database server, and it would be the first thing swapped out in production: concurrent writes from multiple deployments will cause lock contention, and it has no story for horizontal scaling. Postgres would be the right call for anything multi-tenant.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+**Why BuildKit over plain `docker build`?**
+BuildKit supports remote build daemons, layer caching, and parallel execution. Running it as a sidecar (`moby/buildkit`) means the API container doesn't need Docker build access — only socket access to load the finished image.
 
-```sh
-cd my-turborepo
-turbo dev
-```
+**Why subdomain routing over path routing?**
+Subdomains (`{id}.localhost`) are cleaner and avoid path prefix stripping complexity in both Caddy and the app. Apps that use absolute paths or redirects work correctly without modification.
 
-Without global `turbo`, use your package manager:
+**Why Caddy?**
+The admin API makes dynamic route injection trivial — no config reloads, no restarts. A single PATCH request adds a new upstream. Caddy also handles HTTPS automatically when a real domain is pointed at it.
 
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
-```
+---
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## What I'd Do With More Time
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+**Swap SQLite for Postgres** — SQLite works fine for a single-node setup but Postgres is the right call for anything multi-tenant or highly concurrent.
 
-```sh
-turbo dev --filter=web
-```
+**Add a job queue** — right now the pipeline fires directly from the POST handler. A queue (BullMQ + Redis) would decouple the API from the pipeline, give retry semantics for free, and make it easy to add per-user concurrency limits later.
 
-Without global `turbo`:
+**Add a local image registry** — right now built images live in the Docker daemon's local store. A local registry (`registry:2`) would let Nomad or any external orchestrator pull images by tag, and would make build cache reuse across deploys more reliable.
 
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
+**Proper container lifecycle management** — stopping a deployment currently just kills the container. Zero-downtime redeploys (drain traffic → start new container → switch Caddy upstream → stop old container) would be the production pattern.
 
-### Remote Caching
+**Rollback** — image tags are stored per deployment. Redeploying a previous tag is a matter of re-running the `run` and `caddy` steps with the stored `imageTag`. The data model already supports it.
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+**Auth** — no auth at all right now. In production, deployments are scoped to users and env vars are stored encrypted per deployment. The queue would be per-user with rate limits.
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+**What I'd rip out** — the `host-gateway` extra_hosts hack in docker-compose. It works locally but it's fragile — the WSL IP changes on restart. In production this goes away entirely because Nomad handles container scheduling and Consul handles service discovery, so Caddy never needs to dial the host directly.
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+---
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## What's Production Hangar?
 
-```sh
-cd my-turborepo
-turbo login
-```
+The mirror repo is a scoped-down version of the full Hangar platform which runs the HashiCorp stack:
 
-Without global `turbo`, use your package manager:
+- **Nomad** for container orchestration (replaces raw `docker run`)
+- **Consul** for service discovery (replaces manual port tracking)
+- **Vault** for secrets management (replaces `.env` files)
+- **Ansible** for server provisioning (one command from bare metal to running platform)
+- **Terraform** for infrastructure provisioning (Hetzner + DigitalOcean)
 
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
+The full stack is at [github.com/AdedigbaOluwad1/hangar](https://github.com/AdedigbaOluwad1/hangar).
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+---
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+## Time Spent
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+~8 hours across pipeline design, BuildKit integration, Caddy dynamic routing, SSE log streaming, and frontend wiring.
 
-```sh
-turbo link
-```
+---
 
-Without global `turbo`:
+## Brimble Deploy + Feedback
 
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
+> *(Coming — will update with deploy link and feedback)*
 
-## Useful Links
+---
 
-Learn more about the power of Turborepo:
+## Submission Checklist
 
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+- [x] Runs end-to-end with `docker compose up`
+- [x] Live log streaming over SSE
+- [x] Railpack builds produce runnable images
+- [x] Caddy fronts every deployment
+- [x] Subdomain routing per deployment
+- [x] Logs persist and are scrollable after build
+- [x] README with architecture notes and decisions
+- [ ] Loom walkthrough *(coming)*
+- [ ] Brimble deploy + feedback *(coming)*

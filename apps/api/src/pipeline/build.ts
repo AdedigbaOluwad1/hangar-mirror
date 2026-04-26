@@ -8,13 +8,13 @@ export async function build(
   dir: string,
 ): Promise<string> {
   const imageTag = `hangar-${deploymentId}:latest`.toLowerCase();
-  await writeLog(deploymentId, 'build', `🔨 Building image ${imageTag}`);
+  writeLog(deploymentId, 'build', `🔨 Building image ${imageTag}`);
   emitLog(deploymentId, 'build', `🔨 Building image ${imageTag}`);
 
   const planPath = join(dir, 'railpack-plan.json')
 
   // step 1 — prepare: detect runtime, generate build plan
-  await writeLog(deploymentId, 'build', `📋 Analysing app...`);
+  writeLog(deploymentId, 'build', `📋 Analysing app...`);
   emitLog(deploymentId, 'build', `📋 Analysing app...`);
 
   const prepareProc = execa('railpack', [
@@ -38,7 +38,7 @@ export async function build(
   await prepareProc
 
   // step 2 — build with buildctl directly (no docker CLI needed)
-  await writeLog(deploymentId, 'build', `🐳 Building image...`);
+  writeLog(deploymentId, 'build', `🐳 Building image...`);
   emitLog(deploymentId, 'build', `🐳 Building image...`);
 
   const buildProc = execa('buildctl', [
@@ -73,7 +73,7 @@ export async function build(
 
   await buildProc
 
-  await writeLog(deploymentId, 'build', `✅ Image built: ${imageTag}`);
+  writeLog(deploymentId, 'build', `✅ Image built: ${imageTag}`);
   emitLog(deploymentId, 'build', `✅ Image built: ${imageTag}`);
 
   return imageTag;
